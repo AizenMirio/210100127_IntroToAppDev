@@ -117,6 +117,91 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
 
   int categoriesTotalExpense = 0;
 
+  String getMaxExpenseCategory() {
+    if (expenses.isEmpty) {
+      return 'No expenses';
+    }
+
+    Expense maxExpense = expenses.reduce((currMax, expense) {
+      int currMaxAmount = int.tryParse(currMax.amount.replaceAll('\$', '') ?? '0') ?? 0;
+      int expenseAmount = int.tryParse(expense.amount.replaceAll('\$', '') ?? '0') ?? 0;
+      return currMaxAmount >= expenseAmount ? currMax : expense;
+    });
+
+    return maxExpense.categoryName;
+  }
+
+  int calculateAvailableBalance() {
+    int spendingLimit = _budget;
+    int totalExpense = expenses.fold(0, (sum, expense) {
+      int parsedAmount = int.tryParse(expense.amount.replaceAll('\$', '') ?? '0') ?? 0;
+      return sum + parsedAmount;
+    });
+    return spendingLimit - totalExpense;
+  }
+
+  String getBalanceMessage() {
+    int availableBalance = calculateAvailableBalance();
+
+    if (availableBalance < 0) {
+      return 'Critical: Spending limit exceeded';
+    } else if (availableBalance < 500) {
+      return 'Low Balance: You have only \$${availableBalance.toString()} left';
+    } else {
+      return 'Available Balance: \$${availableBalance.toString()}';
+    }
+  }
+
+
+  int _budget = 4000; // Default budget value
+
+  void setBudget(int newBudget) {
+    setState(() {
+      _budget = newBudget;
+      updateTotalExpense(); // Update the total expense display based on the new budget
+    });
+  }
+
+  void _showSetBudgetDialog(BuildContext context) {
+    int newBudget = _budget;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Set Budget'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'New Budget'),
+                onChanged: (value) {
+                  newBudget = int.tryParse(value) ?? _budget;
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setBudget(newBudget);
+                Navigator.pop(context);
+              },
+              child: const Text('Set'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -138,6 +223,7 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
       });
     }
   }
+
 
   void _showAddCategoryDialog(BuildContext context) {
     String categoryName = '';
@@ -221,6 +307,13 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
             ),
           ),
           const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              _showSetBudgetDialog(context);
+            },
+            child: const Text('Set Budget'),
+          ),
+
           // Categories List
           for (int i = 0; i < expenses.length; i++)
             CategoryRow(
@@ -230,6 +323,27 @@ class _ExpenseScreenState extends State<ExpenseScreen> {
                 deleteCategory(i);
               },
             ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Text(
+              'Category with Max Expense: ${getMaxExpenseCategory()}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Text(
+              getBalanceMessage(),
+              style: TextStyle(
+                fontSize: 18,
+                color: calculateAvailableBalance() < 0 ? Colors.red : Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
